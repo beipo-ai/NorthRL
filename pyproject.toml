@@ -13,12 +13,12 @@
 # limitations under the License.
 
 [build-system]
-requires = ["setuptools>=61.0", "wheel"]
+requires = ["setuptools>=77.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "NorthRL"
-version = "1.7.0"
+version = "0.1.0"
 description = "An ultra-loosely-coupled LLM post-training framework by Nex-AGI Team"
 requires-python = ">=3.12"
 dependencies = [
