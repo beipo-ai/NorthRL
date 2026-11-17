@@ -1,0 +1,82 @@
+# Copyright (c) Nex-AGI. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+experiment:
+  name: mimo_terminal_grpo
+  project: NorthRL-MiMo
+
+models:
+  actor:
+    name: ${oc.env:NORTHRL_MIMO_ACTOR}
+    tokenizer: ${oc.env:NORTHRL_MIMO_TOKENIZER,${models.actor.name}}
+    lora:
+      enabled: false
+
+data:
+  train:
+    files:
+      - ${oc.env:NORTHRL_MIMO_DATA_DIR}/terminal.jsonl
+    batch_size: 1
+    rollout_repeat_n: 4
+    prompt_key: instruction
+    filter_prompts: false
+    shuffle: false
+    drop_last: false
+  max_prompt_length: 24576
+  max_sequence_length: 32768
+
+validate:
+  enabled: false
+
+algorithm:
+  type: grpo
+  sampling_logprob_source: inference
+  optim:
+    lr: 1.0e-6
+    mini_batch_size: 4
+  entropy_coeff: 0.0
+
+rollout:
+  type: e2b
+  num_workers: 4
+  max_concurrent_requests: 4
+  sampling:
+    temperature: 0.6
+    top_p: 0.95
+    max_tokens: 8192
+  parsers:
+    reasoning: ${oc.env:NORTHRL_MIMO_REASONING_PARSER,qwen3-thinking}
+    tool: ${oc.env:NORTHRL_MIMO_TOOL_PARSER,qwen3_coder}
+  execution:
+    tokenizer: ${oc.env:NORTHRL_MIMO_E2B_TOKENIZER,${models.actor.tokenizer}}
+    input_fields: [instruction, cwd, agent_user, max_turns]
+    agent_timeout_seconds: 7200
+    entrypoint:
+      target: ${oc.env:NORTHRL_PATH}/northrl/rollout_entrypoints/mimo/terminal.py
+      task_files_root: ${oc.env:NORTHRL_MIMO_DATA_DIR}/evaluation/terminal
+
+training:
+  total_steps: 1
+  save:
+    dir: ${oc.env:EXPERIMENT_PATH}/ckpt
+
+backend:
+  type: weaver
+
+runtime:
+  logger:
+    backends: [console]
+  debug:
+    enable_data_dump: true
+    dump_dir: ${oc.env:EXPERIMENT_PATH}

@@ -1,0 +1,119 @@
+# Copyright (c) Nex-AGI. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: 🔧 Feature（开发用）
+description: 描述功能需求、技术方案和验证计划
+title: "[Feature] "
+labels: ["feature"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        描述需要实现的功能及其技术方案。如果这项工作来自已有 Issue，可填写关联 Issue。
+
+  - type: input
+    id: parent_issue
+    attributes:
+      label: 关联 Issue
+      description: "可选：填写父 Issue，例如 #123、owner/repo#123 或完整的 Issue 链接。跨仓自动关联需要维护者配置访问权限。"
+      placeholder: "#123"
+    validations:
+      required: false
+
+  - type: textarea
+    id: technical_design
+    attributes:
+      label: 技术方案
+      description: 完整的技术实现方案
+      placeholder: |
+        ## 背景分析
+        - 当前系统现状：...
+        - 存在的问题/差距：...
+        - 可复用的现有能力：...
+
+        ## 竞品分析
+        | 竞品/方案 | 实现方式 | 优点 | 缺点 | 适用场景 |
+        |-----------|----------|------|------|----------|
+        | 方案 A    |          |      |      |          |
+        | 方案 B    |          |      |      |          |
+
+        选型建议：...
+
+        ## 整体架构
+        （附架构图或 Mermaid 流程图）
+
+        ## 核心组件及职责
+        - 组件 A：负责...
+        - 组件 B：负责...
+
+        ## 关键接口定义
+        ```python
+        class XXX:
+            def method(self, ...) -> ...:
+                """..."""
+        ```
+
+        ## 数据流与调用关系
+        数据输入 -> 处理 A -> 处理 B -> 输出
+
+        ## 文件变更清单
+        - **新建** `path/to/new_file.py` — 描述
+        - **修改** `path/to/existing.py` — 修改内容
+
+        ## API / 配置变更
+        - 新增 API: ...
+        - 配置变更: ...
+
+        ## 依赖与兼容性
+        - 新增依赖：...
+        - 向后兼容性：...
+
+        ## 风险评估
+        | 风险 | 影响 | 概率 | 应对措施 |
+        |------|------|------|----------|
+
+        ## 里程碑与排期
+        - [ ] 阶段 1：xxx（预计 x 天）
+        - [ ] 阶段 2：xxx（预计 x 天）
+    validations:
+      required: true
+
+  - type: textarea
+    id: test_plan
+    attributes:
+      label: 测试方案
+      description: 完整的验证与测试计划
+      placeholder: |
+        ## 单元测试
+        - 测试用例 1：...
+        - 测试用例 2：...
+
+        ## 集成测试
+        - 端到端测试场景：...
+        - 测试数据准备：...
+
+        ## 性能验证
+        - 基准指标：...
+        - 预期表现：...
+        - 压测方案：...
+
+        ## 验收标准
+        - [ ] 标准 1
+        - [ ] 标准 2
+
+        ## 回归测试
+        - 影响范围：...
+        - 需要回归的模块：...
+    validations:
+      required: true

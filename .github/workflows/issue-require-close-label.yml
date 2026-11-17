@@ -1,0 +1,85 @@
+# Copyright (c) Nex-AGI. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: "[Issue] Require close reason label"
+
+on:
+  issues:
+    types: [closed]
+
+jobs:
+  check-label:
+    if: github.event.issue.state_reason == 'not_planned'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Check for close reason label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = context.payload.issue;
+            const requiredLabels = ['invalid', 'wontfix'];
+            const hasLabel = issue.labels.some(l => requiredLabels.includes(l.name));
+
+            if (hasLabel) {
+              console.log('Close reason label found, OK');
+              return;
+            }
+
+            // Reopen the issue
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              state: 'open'
+            });
+
+            // Find who closed the issue via timeline
+            const timeline = await github.rest.issues.listEventsForTimeline({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              per_page: 100
+            });
+            const closeEvent = [...timeline.data].reverse().find(e => e.event === 'closed');
+            const closer = closeEvent?.actor?.login;
+            const mention = closer ? `@${closer} ` : '';
+
+            // Add a comment
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: issue.number,
+              body: `⚠️ ${mention}以 "not planned" 关闭 issue 时，请先添加以下标签之一再关闭：\n\n- \`invalid\` — 无效问题\n- \`wontfix\` — 不予修复\n\n如果是重复问题，请使用 "Close as duplicate" 关闭。\n请添加标签后重新关闭。`
+            });
+
+            console.log(`Reopened #${issue.number} — missing close reason label`);
+
+  auto-label-duplicate:
+    if: github.event.issue.state_reason == 'duplicate'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Add duplicate label
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.addLabels({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.payload.issue.number,
+              labels: ['duplicate']
+            });

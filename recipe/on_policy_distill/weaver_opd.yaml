@@ -1,0 +1,168 @@
+# Copyright (c) Nex-AGI. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+experiment:
+  name: weaver-opd-qwen3-8b-from-32b
+  project: NorthRL-Weaver-OPD
+  seed: 42
+
+models:
+  actor:
+    name: "Qwen/Qwen3-8B"                      # student
+    tokenizer: "Qwen/Qwen3-8B"
+    checkpoint: null
+    lora:
+      enabled: true
+      rank: 32
+
+  # 每个 teacher 是一个独立的 sampling client。
+  teachers:
+    - name: "Qwen/Qwen3-32B"
+      checkpoint: null                         # 可选：微调过的 teacher checkpoint
+    # 多 teacher 示例（取消注释即可）：
+    # - name: "Qwen/Qwen3-235B-A22B-Instruct-2507"
+    #   checkpoint: null
+
+data:
+  train:
+    files:
+      - ${oc.env:NORTHRL_DATA_PATH}/opd/train.parquet
+    batch_size: 32
+    rollout_repeat_n: 1                        # OPD 通常每个 prompt 采 1 条
+    prompt_key: prompt
+    filter_prompts: false
+    shuffle: true
+    drop_last: true
+
+  max_prompt_length: 4096
+  max_sequence_length: 6144
+
+validate:
+  enabled: true
+  data:
+    datasets:
+      opd:
+        files:
+          - ${oc.env:NORTHRL_DATA_PATH}/opd/val.parquet
+        batch_size: 64
+  sampling:
+    temperature: 0.0
+    top_p: 1.0
+    top_k: 1
+    min_p: 0.0
+  schedule:
+    before_train: false
+    every_n_steps: 10
+
+algorithm:
+  type: opd
+  advantage:
+    estimator:
+      mode: opd
+      params:
+        kl_penalty_coef: 1.0                    # KL 惩罚系数（1.0 = 完全蒸馏）
+        kl_discount_factor: 0.0                 # 未来 KL 的折扣因子（0.0 = 不折扣）
+  loss:
+    mode: importance_sampling
+    reduction:
+      mode: token_mean
+  # OPD passes sampler (inference) logprobs straight through, matching the
+  # tinker on-policy-distillation objective (reverse KL on sampling logprobs,
+  # no trainer recompute). RemoteApiOpdTrainer requires this.
+  sampling_logprob_source: inference
+
+  optim:
+    lr: 1.0e-4
+    beta1: 0.9
+    beta2: 0.95
+    eps: 1.0e-8
+    weight_decay: 1.0e-2
+    grad_clip_norm: 1.0
+    batch_size: 32
+
+  entropy_coeff: 1.0e-4
+
+  kl:
+    mode: null
+
+rollout:
+  # rollout worker coroutine 数量。
+  num_workers: 32
+  # 同时打到 Weaver sampler 的请求上限。null 表示等于 num_workers；
+  # 如果 sampler 压力大，可以设得比 num_workers 小。
+  max_concurrent_requests: null
+
+  sampling:
+    temperature: 0.8
+    top_p: 1.0
+    top_k: -1
+    min_p: 0.0
+    repetition_penalty: 1.0
+    stop: []
+    min_tokens: 0
+    # max_tokens 不写：派生 = data.max_sequence_length - data.max_prompt_length = 2048
+
+  generation_extra: {}
+
+  parsers:
+    tool: null
+    reasoning: null
+
+  type: simple
+
+
+training:
+  total_steps: 1000
+
+  save:
+    every_n_steps: 100
+    dir: ${oc.env:EXPERIMENT_PATH}/ckpt
+
+  resume:
+    mode: disable
+    path: ""
+    skip_dataloader: true
+
+  weight_sync:
+    mode: sync
+    staleness_threshold: 0
+    freeze_inflight: true
+    sampler_ttl_s: 86400
+
+backend:
+  type: weaver
+  base_url: null                               # ENV WEAVER_BASE_URL 必填；yaml 仅在 env 未设时作 fallback
+  api_key: null                                # ENV WEAVER_API_KEY 必填；yaml 仅在 env 未设时作 fallback
+  max_retries: 3
+  request_timeout_s: 1000
+
+runtime:
+  logger:
+    backends: [console, wandb]
+    feishu:
+      enabled: false
+      url: ${oc.env:FEISHU_WEBHOOK_URL,}
+
+  health:
+    exception_policy: stop_on_error
+    exception_check_interval_s: 1.0
+
+  progress:
+    update_interval_s: 1.0
+    log_every_n_steps: 10
+    use_tqdm: true
+
+  debug:
+    enable_data_dump: false
+    dump_dir: null

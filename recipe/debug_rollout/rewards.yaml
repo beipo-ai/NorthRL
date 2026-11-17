@@ -1,0 +1,89 @@
+# Copyright (c) Nex-AGI. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+experiment:
+  name: debug-rollout-rewards
+  project: NorthRL-debug
+  seed: 42
+
+models:
+  actor:
+    name: Qwen/Qwen3-30B-A3B-Base
+    tokenizer: ${models.actor.name}
+    checkpoint: null
+    lora:
+      enabled: false
+
+data:
+  train:
+    files:
+      - recipe/debug_rollout/samples.jsonl
+    batch_size: 8
+    rollout_repeat_n: 1
+    prompt_key: prompt
+    shuffle: false
+    filter_prompts: false
+    drop_last: false
+  max_prompt_length: 4096
+  max_sequence_length: 8192
+
+validate:
+  enabled: false
+
+algorithm:
+  type: grpo
+  sampling_logprob_source: recomputed
+  optim:
+    lr: 1.0e-6
+    batch_size: 8
+
+rollout:
+  num_workers: 1
+  max_concurrent_requests: 1
+  type: single_turn
+  # No fallback: every sample must provide its supported reward_fn.
+  reward_fn: null
+  sampling:
+    temperature: 1.0
+    top_p: 1.0
+    top_k: -1
+    max_tokens: 4096
+  parsers:
+    type: builtin
+    reasoning: null
+    tool: null
+
+training:
+  # Required by the shared schema; debug_rollout performs no training update.
+  total_steps: 1
+  save:
+    every_n_steps: 0
+    dir: ${runtime.debug.dump_dir}/unused_checkpoints
+  resume:
+    mode: disable
+  weight_sync:
+    freeze_inflight: false
+
+backend:
+  type: weaver
+  # Read WEAVER_BASE_URL and WEAVER_API_KEY from the environment.
+  base_url: null
+  api_key: null
+
+runtime:
+  logger:
+    backends: [console]
+  debug:
+    enable_data_dump: true
+    dump_dir: outputs/debug_rollout

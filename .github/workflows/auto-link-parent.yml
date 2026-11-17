@@ -1,0 +1,118 @@
+# Copyright (c) Nex-AGI. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Auto-link as Sub-issue
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  link-parent:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Link as sub-issue to parent
+        uses: actions/github-script@v7
+        env:
+          CROSS_REPOSITORY_ISSUES: ${{ secrets.ISSUE_AUTOMATION_TOKEN != '' || secrets.PROJECT_TOKEN != '' }}
+        with:
+          # Optional token for linking issues across repositories.
+          github-token: ${{ secrets.ISSUE_AUTOMATION_TOKEN || secrets.PROJECT_TOKEN || github.token }}
+          script: |
+            const body = context.payload.issue.body || '';
+
+            // Only parse the optional parent field, not links elsewhere in the issue.
+            const parentSection = body.split(/^### /m).slice(1).find(
+              section => /^(?:关联 Issue|Parent issue)[ \t]*\r?\n/i.test(section)
+            );
+            const reference = parentSection?.replace(/^[^\n]*\n/, '').trim() || '';
+            let parentOwner, parentRepo, parentNumber;
+
+            const urlMatch = reference.match(/^https:\/\/github\.com\/([^/]+)\/([^/]+)\/issues\/(\d+)\/?$/);
+            if (urlMatch) {
+              [, parentOwner, parentRepo, parentNumber] = urlMatch;
+            } else {
+              const refMatch = reference.match(/^([a-zA-Z0-9_.-]+)\/([a-zA-Z0-9_.-]+)#(\d+)$/);
+              if (refMatch) {
+                [, parentOwner, parentRepo, parentNumber] = refMatch;
+              } else if (/^#\d+$/.test(reference)) {
+                parentOwner = context.repo.owner;
+                parentRepo = context.repo.repo;
+                parentNumber = reference.slice(1);
+              }
+            }
+
+            if (!parentNumber) {
+              console.log('No parent issue reference found, skipping');
+              return;
+            }
+
+            const sameRepo = `${parentOwner}/${parentRepo}`.toLowerCase() === `${context.repo.owner}/${context.repo.repo}`.toLowerCase();
+            if (!sameRepo && process.env.CROSS_REPOSITORY_ISSUES !== 'true') {
+              console.log('Cross-repository linking requires ISSUE_AUTOMATION_TOKEN (or legacy PROJECT_TOKEN), skipping');
+              return;
+            }
+
+            parentNumber = parseInt(parentNumber);
+            console.log(`Found parent: ${parentOwner}/${parentRepo}#${parentNumber}`);
+
+            // Get parent issue node ID
+            const parentResult = await github.graphql(`
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  issue(number: $number) {
+                    id
+                  }
+                }
+              }
+            `, { owner: parentOwner, repo: parentRepo, number: parentNumber });
+
+            const parentId = parentResult.repository.issue.id;
+
+            // Get current issue node ID
+            const childResult = await github.graphql(`
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  issue(number: $number) {
+                    id
+                  }
+                }
+              }
+            `, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              number: context.issue.number
+            });
+
+            const childId = childResult.repository.issue.id;
+
+            // Add as sub-issue
+            try {
+              await github.graphql(`
+                mutation($parentId: ID!, $childId: ID!) {
+                  addSubIssue(input: { issueId: $parentId, subIssueId: $childId }) {
+                    issue {
+                      id
+                    }
+                  }
+                }
+              `, { parentId, childId });
+
+              console.log(`✅ Linked ${context.repo.owner}/${context.repo.repo}#${context.issue.number} as sub-issue of ${parentOwner}/${parentRepo}#${parentNumber}`);
+            } catch (e) {
+              console.log(`❌ Failed to link: ${e.message}`);
+            }

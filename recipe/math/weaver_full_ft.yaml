@@ -1,0 +1,166 @@
+# Copyright (c) Nex-AGI. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+experiment:
+  name: weaver-single_turn_math_qwen3_8b_full_ft
+  project: NorthRL-weaver
+  seed: 42
+
+models:
+  actor:
+    name: "Qwen/Qwen3-8B"
+    tokenizer: null                            # null = weaver_service_holder 内部 fallback 到 training_client.get_tokenizer()
+    checkpoint: null
+    lora:
+      enabled: false                           # 全参微调：关 LoRA（training_mode 派生为 full_ft）
+
+data:
+  train:
+    files:
+      - ${oc.env:NORTHRL_DATA_PATH}/math/level1_train.parquet
+      - ${oc.env:NORTHRL_DATA_PATH}/math/level2_train.parquet
+      - ${oc.env:NORTHRL_DATA_PATH}/math/level3_train.parquet
+      - ${oc.env:NORTHRL_DATA_PATH}/math/level4_train.parquet
+      - ${oc.env:NORTHRL_DATA_PATH}/math/level5_train.parquet
+    batch_size: 32
+    rollout_repeat_n: 8
+    prompt_key: prompt
+    filter_prompts: false
+    shuffle: true
+    drop_last: true
+
+  max_prompt_length: 4096
+  max_sequence_length: 12288
+
+validate:
+  enabled: true
+  data:
+    datasets:
+      math:
+        files:
+          - ${oc.env:NORTHRL_DATA_PATH}/math/level1_test.parquet
+          - ${oc.env:NORTHRL_DATA_PATH}/math/level2_test.parquet
+          - ${oc.env:NORTHRL_DATA_PATH}/math/level3_test.parquet
+          - ${oc.env:NORTHRL_DATA_PATH}/math/level4_test.parquet
+          - ${oc.env:NORTHRL_DATA_PATH}/math/level5_test.parquet
+        batch_size: 256
+  sampling:
+    temperature: 0.0
+    top_p: 1.0
+    top_k: 1
+    min_p: 0.0
+  schedule:
+    before_train: false
+    every_n_steps: 0
+
+algorithm:
+  type: grpo
+  loss:
+    mode: importance_sampling
+    params:
+      clip:
+        ratio: null
+        ratio_low: null
+        ratio_high: null
+        ratio_c: null
+        truncation_c: null
+    reduction:
+      mode: token_mean
+  sampling_logprob_source: recomputed
+
+  optim:
+    lr: 2.0e-6                                  # 全参微调用更小的 lr
+    beta1: 0.9
+    beta2: 0.999
+    eps: 1.0e-8
+    weight_decay: 1.0e-2
+    grad_clip_norm: 1.0
+    batch_size: 32
+
+  entropy_coeff: 1.0e-4
+
+  kl:
+    mode: null
+
+rollout:
+  # rollout worker coroutine 数量。
+  num_workers: 256
+  # 同时打到 Weaver sampler 的请求上限。null 表示等于 num_workers；
+  # 如果 sampler 压力大，可以设得比 num_workers 小。
+  max_concurrent_requests: null
+
+  sampling:
+    temperature: 1.0
+    top_p: 1.0
+    top_k: -1
+    min_p: 0.0
+    repetition_penalty: 1.0
+    stop: []
+    min_tokens: 0
+    # max_tokens 不写：派生 = data.max_sequence_length - data.max_prompt_length = 8192
+
+  generation_extra: {}
+
+  parsers:
+    tool: null
+    reasoning: null
+
+  reward_fn: math_with_format
+  type: single_turn
+
+
+training:
+  total_steps: 100
+
+  save:
+    every_n_steps: 0
+    dir: ${oc.env:EXPERIMENT_PATH}/ckpt
+
+  resume:
+    mode: disable
+    path: ""
+    skip_dataloader: true
+
+  weight_sync:
+    mode: sync
+    staleness_threshold: 0
+    freeze_inflight: true
+    sampler_ttl_s: 86400
+
+backend:
+  type: weaver
+  base_url: null                               # ENV WEAVER_BASE_URL 必填；yaml 仅在 env 未设时作 fallback
+  api_key: null                                # ENV WEAVER_API_KEY 必填；yaml 仅在 env 未设时作 fallback
+  max_retries: 3
+  request_timeout_s: 1000
+
+runtime:
+  logger:
+    backends: [console, wandb]
+    feishu:
+      enabled: false
+      url: ${oc.env:FEISHU_WEBHOOK_URL,}
+
+  health:
+    exception_policy: stop_on_error
+    exception_check_interval_s: 1.0
+
+  progress:
+    update_interval_s: 1.0
+    log_every_n_steps: 10
+    use_tqdm: true
+
+  debug:
+    enable_data_dump: false
+    dump_dir: null

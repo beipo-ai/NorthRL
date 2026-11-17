@@ -1,0 +1,102 @@
+# Copyright (c) Nex-AGI. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+experiment:
+  name: weaver-gspo-math-qwen3-8b
+  project: NorthRL-weaver
+  seed: 42
+
+models:
+  actor:
+    name: Qwen/Qwen3-8B
+    lora:
+      enabled: true
+      rank: 32
+
+data:
+  train:
+    files:
+      - ${oc.env:NORTHRL_DATA_PATH}/math/level1_train.parquet
+      - ${oc.env:NORTHRL_DATA_PATH}/math/level2_train.parquet
+      - ${oc.env:NORTHRL_DATA_PATH}/math/level3_train.parquet
+      - ${oc.env:NORTHRL_DATA_PATH}/math/level4_train.parquet
+      - ${oc.env:NORTHRL_DATA_PATH}/math/level5_train.parquet
+    batch_size: 32
+    rollout_repeat_n: 8
+    prompt_key: prompt
+    shuffle: true
+    drop_last: true
+  max_prompt_length: 4096
+  max_sequence_length: 12288
+
+validate:
+  enabled: false
+
+algorithm:
+  type: grpo
+  advantage:
+    estimator:
+      mode: grpo
+      params:
+        norm_adv_by_std: true
+    postprocessing:
+      mode: null
+  loss:
+    mode: gspo
+    params:
+      clip:
+        ratio_low: 0.0004
+        ratio_high: 0.0006
+    reduction:
+      mode: trajectory_mean
+  sampling_logprob_source: recomputed
+  entropy_coeff: 0.0
+  kl:
+    mode: null
+  mis:
+    enabled: false
+  optim:
+    lr: 1.0e-4
+    # Keep complete trajectories together; one trajectory mean per delivered batch.
+    batch_size: null
+    mini_batch_size: 16
+    submit_ahead: 0
+
+rollout:
+  type: single_turn
+  reward_fn: math_with_format
+  num_workers: 256
+  sampling:
+    temperature: 1.0
+    top_p: 1.0
+    top_k: -1
+    min_p: 0.0
+    repetition_penalty: 1.0
+
+training:
+  total_steps: 100
+  save:
+    every_n_steps: 0
+    dir: ${oc.env:EXPERIMENT_PATH}/ckpt
+  weight_sync:
+    mode: sync
+    freeze_inflight: true
+
+backend:
+  type: weaver
+  request_timeout_s: 1000
+
+runtime:
+  logger:
+    backends: [console, wandb]

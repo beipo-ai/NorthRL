@@ -1,0 +1,191 @@
+# Copyright (c) Nex-AGI. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+experiment:
+  name: grpo-r3-qwen3-30b-a3b-base-sample-mean-1107
+  project: northrl-r3-sample-mean
+  seed: 42
+
+models:
+  actor:
+    # This must match the model name registered on the target Weaver service.
+    name: ${oc.env:NORTHRL_R3_MODEL,Qwen/Qwen3-30B-A3B-Base}
+    # Override both fields together when switching to a different model.
+    tokenizer: ${oc.env:NORTHRL_R3_TOKENIZER,Qwen/Qwen3-30B-A3B-Base}
+    checkpoint: null
+    lora:
+      enabled: false
+
+data:
+  # NorthRL port of grpo_r3_slime.sh.
+  # Step-based training automatically starts a newly shuffled epoch when this
+  # dataset is exhausted, so the file is specified exactly once.
+  train:
+    files:
+      - ${oc.env:NORTHRL_TRAIN_DATA_PATH}
+    batch_size: 32
+    rollout_repeat_n: 16
+    prompt_key: prompt
+    filter_prompts: true
+    shuffle: true
+    drop_last: true
+
+  max_prompt_length: 4096
+  max_sequence_length: 32768
+
+validate:
+  enabled: true
+  data:
+    validation_repeat_n: 3
+    datasets:
+      math500:
+        files:
+          - ${oc.env:NORTHRL_R3_MATH500_DATA}
+        batch_size: 256
+      aime2024:
+        files:
+          - ${oc.env:NORTHRL_R3_AIME2024_DATA}
+        batch_size: 256
+      aime2025:
+        files:
+          - ${oc.env:NORTHRL_R3_AIME2025_DATA}
+        batch_size: 256
+      aime2026:
+        files:
+          - ${oc.env:NORTHRL_R3_AIME2026_DATA}
+        batch_size: 256
+      # GPQA is intentionally omitted: the configured math_answer_only reward
+      # does not implement its "Answer: LETTER" scoring contract.
+
+  sampling:
+    temperature: 1.0
+    top_p: 1.0
+    top_k: -1
+    min_p: 0.0
+    max_tokens: 16384
+
+  schedule:
+    before_train: true
+    every_n_steps: 25
+
+  aggregation: pass_at_k
+
+algorithm:
+  type: grpo
+  loss:
+    mode: ppo_clip
+    params:
+      clip:
+        ratio: null
+        ratio_low: 0.2
+        ratio_high: 0.2
+        ratio_c: null
+        truncation_c: null
+    reduction:
+      mode: datum_mean
+  # R3 replays rollout routing in both trainer-side forwards. The IS
+  # denominator therefore comes from trainer.forward_logprob, not the sampler.
+  sampling_logprob_source: recomputed
+
+  optim:
+    lr: 1.0e-6
+    beta1: 0.9
+    beta2: 0.98
+    eps: 1.0e-8
+    weight_decay: 0.1
+    grad_clip_norm: 1.0
+    mini_batch_size: 512
+
+  entropy_coeff: 0.0
+
+  # Slime enables the KL-loss path with coefficient 0.0. Disabling it here
+  # preserves the effective objective without provisioning an unused ref model.
+  kl:
+    mode: null
+
+  router_replay:
+    enabled: true
+    mode: R3
+
+rollout:
+  num_workers: 256
+  max_concurrent_requests: 256
+
+  sampling:
+    temperature: 1.0
+    top_p: 1.0
+    top_k: -1
+    min_p: 0.0
+    repetition_penalty: 1.0
+    stop: []
+    min_tokens: 0
+    max_tokens: 16384
+
+  generation_extra: {}
+
+  parsers:
+    type: builtin
+    reasoning: null
+    tool: null
+
+  # Full-response boxed-answer grading with binary 0/1 reward, no think-tag check.
+  reward_fn: math_answer_only
+  type: single_turn
+
+  max_ready_groups: 128
+
+training:
+  total_steps: 3000
+
+  save:
+    every_n_steps: 100
+    dir: ${oc.env:EXPERIMENT_PATH}/ckpt
+
+  resume:
+    mode: disable
+    skip_dataloader: true
+
+  weight_sync:
+    mode: sync
+    staleness_threshold: 0
+    freeze_inflight: true
+    sampler_ttl_s: 86400
+
+backend:
+  type: weaver
+  base_url: null
+  api_key: null
+  max_retries: 3
+  request_timeout_s: 3600
+
+runtime:
+  logger:
+    # Configure WANDB_API_KEY/project access before enabling the wandb backend.
+    backends: [console, wandb]
+    feishu:
+      enabled: false
+      url: null
+
+  health:
+    exception_policy: stop_on_error
+    exception_check_interval_s: 1.0
+
+  progress:
+    update_interval_s: 1.0
+    log_every_n_steps: 1
+    use_tqdm: true
+
+  debug:
+    enable_data_dump: false
+    dump_dir: null

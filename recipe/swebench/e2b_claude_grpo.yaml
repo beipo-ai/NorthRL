@@ -1,0 +1,108 @@
+# Copyright (c) Nex-AGI. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+experiment:
+  name: swebench-claude-grpo
+  project: NorthRL-swebench
+  seed: 42
+
+models:
+  actor:
+    # Use a model registered on your Weaver service and its matching tokenizer.
+    # Required resources: docs/en/recipe/advanced-recipes/README.md#swebench
+    name: ${oc.env:NORTHRL_SWEBENCH_MODEL}
+    tokenizer: ${oc.env:NORTHRL_SWEBENCH_TOKENIZER}
+    lora:
+      enabled: false
+
+
+data:
+  train:
+    files:
+      - ${oc.env:NORTHRL_SWEBENCH_TRAIN_DATA}
+    batch_size: 8
+    rollout_repeat_n: 8
+    prompt_key: instruction
+    filter_prompts: false
+    shuffle: false
+    drop_last: false
+  max_prompt_length: 65536
+  max_sequence_length: 262144
+
+validate:
+  enabled: false
+
+algorithm:
+  type: grpo
+  loss:
+    mode: importance_sampling
+  sampling_logprob_source: inference
+  optim:
+    lr: 1.0e-6
+    batch_size: null  # One optimizer update for all Datums in the complete rollout batch.
+    mini_batch_size: 16
+  entropy_coeff: 0.0
+
+rollout:
+  num_workers: 64
+  max_concurrent_requests: 64
+  keep_sampling_mask: false
+  sampling:
+    temperature: 0.6
+    top_p: 0.95
+    top_k: -1
+    min_p: 0.0
+    max_tokens: 8192
+  type: e2b
+  execution:
+    input_fields: [instruction, interface]
+    agent_timeout_seconds: 3600
+    env_error_retries: 3
+    network_policy:
+      deny_domains:
+        - github.com
+        - githubusercontent.com
+        - gitlab.com
+        - bitbucket.org
+    entrypoint:
+      # Root run.sh defaults NORTHRL_PATH to its checkout; set it to override.
+      target: ${oc.env:NORTHRL_PATH}/northrl/rollout_entrypoints/swerebench_claude_code_rollout.py
+      task_files_root: ${oc.env:NORTHRL_SWEBENCH_TASK_FILES_ROOT}
+
+training:
+  total_steps: ${oc.decode:${oc.env:NORTHRL_SWEBENCH_TOTAL_STEPS,10}}
+  save:
+    every_n_steps: 0
+    dir: ${oc.env:EXPERIMENT_PATH}/ckpt
+  weight_sync:
+    mode: sync
+    staleness_threshold: 0
+    freeze_inflight: true
+    sampler_ttl_s: ${oc.decode:${oc.env:NORTHRL_SAMPLER_TTL_S,604800}}
+
+backend:
+  type: weaver
+  base_url: null
+  api_key: null
+  max_retries: 3
+
+runtime:
+  logger:
+    backends: [console, wandb]
+  debug:
+    enable_data_dump: true
+    dump_dir: ${oc.env:EXPERIMENT_PATH}
+    dump_every_n_steps: 1
+    remote_api_dump_options:
+      datums: true

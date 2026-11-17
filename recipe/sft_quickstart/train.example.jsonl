@@ -1,0 +1,8 @@
+{"messages":[{"role":"user","content":"What is 2 + 2?"},{"role":"assistant","content":"4"}]}
+{"messages":[{"role":"user","content":"What is 3 + 5?"},{"role":"assistant","content":"8"}]}
+{"messages":[{"role":"user","content":"What is 10 minus 4?"},{"role":"assistant","content":"6"}]}
+{"messages":[{"role":"user","content":"What is 6 times 7?"},{"role":"assistant","content":"42"}]}
+{"messages":[{"role":"user","content":"What is 12 divided by 3?"},{"role":"assistant","content":"4"}]}
+{"messages":[{"role":"user","content":"What is the square of 5?"},{"role":"assistant","content":"25"}]}
+{"messages":[{"role":"user","content":"What is half of 18?"},{"role":"assistant","content":"9"}]}
+{"messages":[{"role":"user","content":"What is 9 + 11?"},{"role":"assistant","content":"20"}]}

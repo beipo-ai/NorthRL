@@ -1,0 +1,124 @@
+# Copyright (c) Nex-AGI. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+experiment:
+  # TMax terminal tasks with Claude Code on E2B. Defaults: 32 tasks x 16 samples,
+  # temperature 1.0, 16k tokens per
+  # call, 128k context, 1 h per episode, lr 1e-6, Adam beta2 0.98, weight decay 0.01.
+  name: tmax-claude-code
+  project: NorthRL-tmax
+  seed: 42
+
+models:
+  actor:
+    # Use a model registered on your Weaver service and its matching tokenizer.
+    name: ${oc.env:NORTHRL_TMAX_MODEL}
+    tokenizer: ${oc.env:NORTHRL_TMAX_TOKENIZER}
+    lora:
+      enabled: false
+
+data:
+  # Data and evaluation package formats are documented in recipe/tmax/README.md.
+  train:
+    files:
+      - ${oc.env:NORTHRL_TMAX_TRAIN_DATA}
+    batch_size: ${oc.decode:${oc.env:NORTHRL_TMAX_BATCH_SIZE,32}}
+    rollout_repeat_n: ${oc.decode:${oc.env:NORTHRL_TMAX_REPEAT_N,16}}
+    prompt_key: instruction
+    filter_prompts: false
+    shuffle: true
+    drop_last: true
+  max_prompt_length: 65536
+  max_sequence_length: 131072
+
+validate:
+  enabled: false
+
+algorithm:
+  type: grpo
+  loss:
+    mode: importance_sampling
+    reduction:
+      # Groups weighted equally, tokens weighted within a group.
+      mode: prompt_mean
+  # Training-side old log-probs: one update per batch gives ratio 1 (E2B cannot run R3,
+  # so inference log-probs would leave the ratio against the trainer unbounded).
+  sampling_logprob_source: recomputed
+  optim:
+    lr: 1.0e-6
+    beta2: 0.98
+    weight_decay: 0.01
+    batch_size: null  # One optimizer update for all Datums in the complete rollout batch.
+    mini_batch_size: 32
+  entropy_coeff: 0.0
+
+rollout:
+  num_workers: ${oc.decode:${oc.env:NORTHRL_TMAX_ROLLOUT_WORKERS,512}}
+  max_concurrent_requests: ${oc.decode:${oc.env:NORTHRL_TMAX_ROLLOUT_WORKERS,512}}
+  keep_sampling_mask: false
+  sampling:
+    temperature: 1.0
+    top_p: 1.0
+    top_k: -1
+    min_p: 0.0
+    max_tokens: 16384  # per model call; the relay overrides Claude Code's own max_tokens
+  type: e2b
+  # Chat template and response parsing come from the server-side NorthGate codec profile.
+  # The entrypoint asks for forced thinking with Anthropic output_config.effort=high.
+  execution:
+    input_fields: [instruction]
+    # Phase budgets: sandbox creation and the Claude Code copy (the entrypoint's own
+    # install limit is 900 s), 1 h of agent time, and run-tests.sh (the entrypoint's own
+    # limit is 1200 s) plus the hidden-asset upload.
+    preparation_timeout_seconds: 1200
+    agent_timeout_seconds: 3600
+    evaluation_timeout_seconds: 1500
+    env_error_retries: 3
+    gateway_publication_timeout_seconds: 86400
+    # Shared E2B volume with the Claude Code binary; the entrypoint copies it to tmpfs
+    # and unmounts the volume before the agent starts.
+    volume_mounts:
+      /mnt/ccbin: ${oc.env:NORTHRL_TMAX_CC_VOLUME}
+    entrypoint:
+      # Root run.sh defaults NORTHRL_PATH to its checkout; set it to override.
+      target: ${oc.env:NORTHRL_PATH}/northrl/rollout_entrypoints/tmax_claude_code_rollout.py
+      task_files_root: ${oc.env:NORTHRL_TMAX_TASK_FILES_ROOT}
+
+training:
+  # Adjust the step count for the size of your prepared task dataset.
+  total_steps: ${oc.decode:${oc.env:NORTHRL_TMAX_TOTAL_STEPS,109}}
+  save:
+    every_n_steps: 10
+    dir: ${oc.env:EXPERIMENT_PATH}/ckpt
+  weight_sync:
+    mode: sync
+    staleness_threshold: 0
+    freeze_inflight: true
+    sampler_ttl_s: ${oc.decode:${oc.env:NORTHRL_SAMPLER_TTL_S,604800}}
+
+backend:
+  type: weaver
+  base_url: null
+  api_key: null
+  max_retries: 3
+
+runtime:
+  logger:
+    backends: [console, wandb]
+  debug:
+    enable_data_dump: true
+    dump_dir: ${oc.env:EXPERIMENT_PATH}
+    dump_every_n_steps: 1
+    remote_api_dump_options:
+      datums: true

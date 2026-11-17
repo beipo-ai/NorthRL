@@ -1,0 +1,869 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1210" viewBox="0 0 1600 1210" role="img" aria-labelledby="title desc" lang="en">
+<title id="title">NorthRL × Weaver — Async Batching with NorthGate and Persistent E2B Agents</title>
+<desc id="desc">A 24-second conceptual animation. E2B agents send model requests through their local HTTP relay to NorthGate, which connects to Weaver inference. Responses and token metadata return through NorthGate to the sandbox. This model-call path is separate from the training-data path: completed E2B rollouts enter NorthRL groups. With three trajectories per group and two complete groups per batch, B and then A become ready; batch 01 dispatches and trains while C3 continues its long rollout. C2 arrives during training and C3 remains in flight. After training and weight export, Weaver temporarily holds the model request to retract and update weights, then resumes generation. NorthGate continues to connect the same agent to inference. The E2B agent process, workspace, task, and existing token prefix persist throughout; no agent restart is required. Other agents can execute tools while model requests wait. Partial traces are not independent training samples. Full-FT retract behavior requires a supporting backend. Timings are illustrative, not performance measurements.</desc>
+<defs>
+ <linearGradient id="surface" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#112335"/><stop offset="1" stop-color="#0c1726"/></linearGradient>
+ <linearGradient id="headline"><stop stop-color="#f2f8ff"/><stop offset="1" stop-color="#acc9e6"/></linearGradient>
+ <radialGradient id="ambient"><stop stop-color="#173b49" stop-opacity=".38"/><stop offset="1" stop-color="#080f1b" stop-opacity="0"/></radialGradient>
+ <radialGradient id="violet"><stop stop-color="#32224b" stop-opacity=".4"/><stop offset="1" stop-color="#080f1b" stop-opacity="0"/></radialGradient>
+ <pattern id="dots" width="24" height="24" patternUnits="userSpaceOnUse"><circle cx="1" cy="1" r=".7" fill="#6a91b5" opacity=".1"/></pattern>
+ <pattern id="hatch" width="8" height="8" patternUnits="userSpaceOnUse"><path d="M-2 2L2 -2M0 8L8 0M6 10L10 6" fill="none" stroke="#edc489" stroke-opacity=".22"/></pattern>
+ <marker id="cyan-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1L7 4L1 7" fill="none" stroke="#64ddd8" stroke-width="1.4"/></marker>
+ <marker id="purple-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto"><path d="M1 1L7 4L1 7" fill="none" stroke="#b49aff" stroke-width="1.4"/></marker>
+</defs>
+<style>text{font-family:Inter,"Segoe UI",Arial,sans-serif}.mono{font-family:Consolas,"Liberation Mono",monospace}@media(prefers-reduced-motion:reduce){.motion{display:none}}</style>
+<rect x="0" y="0" width="1600" height="1210" rx="24" fill="#080f1b" stroke="none" />
+<ellipse cx="640" cy="360" rx="810" ry="540" fill="url(#ambient)"/><ellipse cx="1440" cy="500" rx="580" ry="500" fill="url(#violet)"/>
+<rect x="40" y="190" width="1520" height="555" rx="16" fill="url(#dots)" stroke="none" />
+<rect x="64" y="40" width="33" height="3" rx="1.5" fill="#64ddd8" stroke="none" />
+<text x="109" y="46" font-size="11" fill="#92a9bd" font-weight="600" text-anchor="start" letter-spacing="1.8">NORTHRL / SYSTEMS IN MOTION</text>
+<text x="64" y="104" font-size="46" fill="url(#headline)" font-weight="600" text-anchor="start" letter-spacing="-1.2">NorthRL × Weaver</text>
+<text x="64" y="143" font-size="22" fill="#92a9bd" font-weight="400" text-anchor="start" >Async batches. Agents that stay alive.</text>
+<g opacity="0" id="phase-title-0">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.308333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1536" y="108" font-size="17" fill="#64ddd8" font-weight="500" text-anchor="end" >COLLECT AS RESULTS ARRIVE</text>
+</g>
+<g opacity="0" id="phase-title-1">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.308333;0.325000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1536" y="108" font-size="17" fill="#b49aff" font-weight="500" text-anchor="end" >ASSEMBLE COMPLETE GROUPS</text>
+</g>
+<g opacity="0" id="phase-title-2">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.325000;0.354167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1536" y="108" font-size="17" fill="#b49aff" font-weight="500" text-anchor="end" >BATCH 01 READY</text>
+</g>
+<g opacity="0" id="phase-title-3">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.354167;0.562500;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1536" y="108" font-size="17" fill="#b49aff" font-weight="500" text-anchor="end" >TRAIN WHILE AGENTS RUN</text>
+</g>
+<g opacity="0" id="phase-title-4">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.562500;0.625000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1536" y="108" font-size="17" fill="#b49aff" font-weight="500" text-anchor="end" >EXPORT NEW WEIGHTS</text>
+</g>
+<g opacity="0" id="phase-title-5">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.625000;0.750000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1536" y="108" font-size="17" fill="#edc489" font-weight="500" text-anchor="end" >HOLD THE REQUEST, KEEP THE AGENT</text>
+</g>
+<g opacity="0" id="phase-title-6">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.750000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1536" y="108" font-size="17" fill="#64ddd8" font-weight="500" text-anchor="end" >SAME AGENT, CONTINUED ROLLOUT</text>
+</g>
+<text x="1536" y="143" font-size="11" fill="#92a9bd" font-weight="500" text-anchor="end" letter-spacing="1">FULLY ASYNC · FULL-FT · RETRACT</text>
+<text x="64" y="198" font-size="12" fill="#64ddd8" font-weight="500" text-anchor="start" >01</text>
+<text x="93" y="198" font-size="11" fill="#92a9bd" font-weight="500" text-anchor="start" letter-spacing="1.2">INDEPENDENT COMPLETION</text>
+<text x="590" y="198" font-size="12" fill="#64ddd8" font-weight="500" text-anchor="start" >02</text>
+<text x="619" y="198" font-size="11" fill="#92a9bd" font-weight="500" text-anchor="start" letter-spacing="1.2">ASYNC BATCH ASSEMBLY</text>
+<text x="1230" y="198" font-size="12" fill="#b49aff" font-weight="500" text-anchor="start" >03</text>
+<text x="1259" y="198" font-size="11" fill="#92a9bd" font-weight="500" text-anchor="start" letter-spacing="1.2">TRAIN + SERVE</text>
+<path d="M471 364H586" fill="none" stroke="#64ddd8" stroke-width="1.5" id="arrival-A" opacity=".4" marker-end="url(#cyan-arrow)"/>
+<path d="M471 452H586" fill="none" stroke="#64ddd8" stroke-width="1.5" id="arrival-B" opacity=".4" marker-end="url(#cyan-arrow)"/>
+<path d="M471 540H586" fill="none" stroke="#64ddd8" stroke-width="1.5" id="arrival-C" opacity=".4" marker-end="url(#cyan-arrow)"/>
+<text x="527" y="308" font-size="10" fill="#92a9bd" font-weight="500" text-anchor="middle" letter-spacing=".6">COMPLETED</text>
+<text x="527" y="325" font-size="10" fill="#92a9bd" font-weight="500" text-anchor="middle" letter-spacing=".6">TRAJECTORIES</text>
+<path d="M1107 653H1139Q1157 653 1157 635V414Q1157 396 1175 396H1226" fill="none" stroke="#b49aff" stroke-width="1.5" id="batch-route" opacity=".4" marker-end="url(#purple-arrow)"/>
+<text x="1162" y="685" font-size="11" fill="#b49aff" font-weight="500" text-anchor="middle" >6 trajectories</text>
+<rect x="71" y="231" width="400" height="500" rx="18" fill="#091422" stroke="#142a3b" />
+<rect x="64" y="224" width="400" height="500" rx="18" fill="url(#surface)" stroke="#2a3e50" />
+<path d="M84 224H444" fill="none" stroke="#64ddd8" stroke-width="1" opacity=".55"/>
+<text x="88" y="268" font-size="28" fill="#eef5fc" font-weight="600" text-anchor="start" >E2B</text>
+<text x="156" y="267" font-size="20" fill="#92a9bd" font-weight="400" text-anchor="start" >Agent fleet</text>
+<text x="88" y="298" font-size="14" fill="#92a9bd" font-weight="400" text-anchor="start" >Independent tasks. Different finish times.</text>
+<path d="M88 320H440" fill="none" stroke="#2a3e50" stroke-width="1" />
+<rect x="88" y="334" width="352" height="75" rx="9" fill="#0b1b29" stroke="#20394b" />
+<text x="104" y="361" font-size="14" fill="#eef5fc" font-weight="500" text-anchor="start" >Task A</text>
+<text x="104" y="381" font-size="10" fill="#92a9bd" font-weight="400" text-anchor="start" >3 rollouts</text>
+<rect x="184" y="346" width="70" height="32" rx="6" fill="#14323e" stroke="#2a5260" />
+<text x="219" y="366" font-size="13" fill="#64ddd8" font-weight="600" text-anchor="middle" >A1</text>
+<g opacity="0" id="agent-A1-active">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.050000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<path d="M192 390H246" fill="none" stroke="#64ddd8" stroke-width="2" opacity=".22" stroke-linecap="round"/>
+<circle class="motion" r="2.5" fill="#64ddd8">
+<animateMotion path="M192 390H246" dur="2.8s" repeatCount="indefinite"/></circle></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.050000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="184" y="346" width="70" height="32" rx="6" fill="#172431" stroke="#2b4050" />
+<text x="219" y="366" font-size="12" fill="#92a9bd" font-weight="500" text-anchor="middle" >A1 ✓</text>
+</g>
+<rect x="266" y="346" width="70" height="32" rx="6" fill="#14323e" stroke="#2a5260" />
+<text x="301" y="366" font-size="13" fill="#64ddd8" font-weight="600" text-anchor="middle" >A2</text>
+<g opacity="0" id="agent-A2-active">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.175000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<path d="M274 390H328" fill="none" stroke="#64ddd8" stroke-width="2" opacity=".22" stroke-linecap="round"/>
+<circle class="motion" r="2.5" fill="#64ddd8">
+<animateMotion path="M274 390H328" dur="3.4s" repeatCount="indefinite"/></circle></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.175000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="266" y="346" width="70" height="32" rx="6" fill="#172431" stroke="#2b4050" />
+<text x="301" y="366" font-size="12" fill="#92a9bd" font-weight="500" text-anchor="middle" >A2 ✓</text>
+</g>
+<rect x="348" y="346" width="70" height="32" rx="6" fill="#14323e" stroke="#2a5260" />
+<text x="383" y="366" font-size="13" fill="#64ddd8" font-weight="600" text-anchor="middle" >A3</text>
+<g opacity="0" id="agent-A3-active">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.283333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<path d="M356 390H410" fill="none" stroke="#64ddd8" stroke-width="2" opacity=".22" stroke-linecap="round"/>
+<circle class="motion" r="2.5" fill="#64ddd8">
+<animateMotion path="M356 390H410" dur="4.0s" repeatCount="indefinite"/></circle></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.283333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="348" y="346" width="70" height="32" rx="6" fill="#172431" stroke="#2b4050" />
+<text x="383" y="366" font-size="12" fill="#92a9bd" font-weight="500" text-anchor="middle" >A3 ✓</text>
+</g>
+<rect x="88" y="422" width="352" height="75" rx="9" fill="#0b1b29" stroke="#20394b" />
+<text x="104" y="449" font-size="14" fill="#eef5fc" font-weight="500" text-anchor="start" >Task B</text>
+<text x="104" y="469" font-size="10" fill="#92a9bd" font-weight="400" text-anchor="start" >3 rollouts</text>
+<rect x="184" y="434" width="70" height="32" rx="6" fill="#14323e" stroke="#2a5260" />
+<text x="219" y="454" font-size="13" fill="#64ddd8" font-weight="600" text-anchor="middle" >B1</text>
+<g opacity="0" id="agent-B1-active">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.091667;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<path d="M192 478H246" fill="none" stroke="#64ddd8" stroke-width="2" opacity=".22" stroke-linecap="round"/>
+<circle class="motion" r="2.5" fill="#64ddd8">
+<animateMotion path="M192 478H246" dur="2.8s" repeatCount="indefinite"/></circle></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.091667;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="184" y="434" width="70" height="32" rx="6" fill="#172431" stroke="#2b4050" />
+<text x="219" y="454" font-size="12" fill="#92a9bd" font-weight="500" text-anchor="middle" >B1 ✓</text>
+</g>
+<rect x="266" y="434" width="70" height="32" rx="6" fill="#14323e" stroke="#2a5260" />
+<text x="301" y="454" font-size="13" fill="#64ddd8" font-weight="600" text-anchor="middle" >B2</text>
+<g opacity="0" id="agent-B2-active">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.204167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<path d="M274 478H328" fill="none" stroke="#64ddd8" stroke-width="2" opacity=".22" stroke-linecap="round"/>
+<circle class="motion" r="2.5" fill="#64ddd8">
+<animateMotion path="M274 478H328" dur="3.4s" repeatCount="indefinite"/></circle></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.204167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="266" y="434" width="70" height="32" rx="6" fill="#172431" stroke="#2b4050" />
+<text x="301" y="454" font-size="12" fill="#92a9bd" font-weight="500" text-anchor="middle" >B2 ✓</text>
+</g>
+<rect x="348" y="434" width="70" height="32" rx="6" fill="#14323e" stroke="#2a5260" />
+<text x="383" y="454" font-size="13" fill="#64ddd8" font-weight="600" text-anchor="middle" >B3</text>
+<g opacity="0" id="agent-B3-active">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.254167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<path d="M356 478H410" fill="none" stroke="#64ddd8" stroke-width="2" opacity=".22" stroke-linecap="round"/>
+<circle class="motion" r="2.5" fill="#64ddd8">
+<animateMotion path="M356 478H410" dur="4.0s" repeatCount="indefinite"/></circle></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.254167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="348" y="434" width="70" height="32" rx="6" fill="#172431" stroke="#2b4050" />
+<text x="383" y="454" font-size="12" fill="#92a9bd" font-weight="500" text-anchor="middle" >B3 ✓</text>
+</g>
+<rect x="88" y="510" width="352" height="75" rx="9" fill="#0b1b29" stroke="#20394b" />
+<text x="104" y="537" font-size="14" fill="#eef5fc" font-weight="500" text-anchor="start" >Task C</text>
+<text x="104" y="557" font-size="10" fill="#92a9bd" font-weight="400" text-anchor="start" >3 rollouts</text>
+<rect x="184" y="522" width="70" height="32" rx="6" fill="#14323e" stroke="#2a5260" />
+<text x="219" y="542" font-size="13" fill="#64ddd8" font-weight="600" text-anchor="middle" >C1</text>
+<g opacity="0" id="agent-C1-active">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.125000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<path d="M192 566H246" fill="none" stroke="#64ddd8" stroke-width="2" opacity=".22" stroke-linecap="round"/>
+<circle class="motion" r="2.5" fill="#64ddd8">
+<animateMotion path="M192 566H246" dur="2.8s" repeatCount="indefinite"/></circle></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.125000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="184" y="522" width="70" height="32" rx="6" fill="#172431" stroke="#2b4050" />
+<text x="219" y="542" font-size="12" fill="#92a9bd" font-weight="500" text-anchor="middle" >C1 ✓</text>
+</g>
+<rect x="266" y="522" width="70" height="32" rx="6" fill="#14323e" stroke="#2a5260" />
+<text x="301" y="542" font-size="13" fill="#64ddd8" font-weight="600" text-anchor="middle" >C2</text>
+<g opacity="0" id="agent-C2-active">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.433333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<path d="M274 566H328" fill="none" stroke="#64ddd8" stroke-width="2" opacity=".22" stroke-linecap="round"/>
+<circle class="motion" r="2.5" fill="#64ddd8">
+<animateMotion path="M274 566H328" dur="3.4s" repeatCount="indefinite"/></circle></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.433333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="266" y="522" width="70" height="32" rx="6" fill="#172431" stroke="#2b4050" />
+<text x="301" y="542" font-size="12" fill="#92a9bd" font-weight="500" text-anchor="middle" >C2 ✓</text>
+</g>
+<rect x="348" y="522" width="70" height="32" rx="6" fill="#14323e" stroke="#2a5260" />
+<text x="383" y="542" font-size="13" fill="#64ddd8" font-weight="600" text-anchor="middle" >C3</text>
+<g opacity="0" id="agent-C3-active">
+<animate attributeName="opacity" values="1;1" keyTimes="0.000000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<path d="M356 566H410" fill="none" stroke="#64ddd8" stroke-width="2" opacity=".22" stroke-linecap="round"/>
+<circle class="motion" r="2.5" fill="#64ddd8">
+<animateMotion path="M356 566H410" dur="4.0s" repeatCount="indefinite"/></circle></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.354167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="348" y="522" width="70" height="32" rx="6" fill="#153d42" stroke="#64ddd8" />
+<text x="383" y="542" font-size="13" fill="#64ddd8" font-weight="600" text-anchor="middle" >C3</text>
+</g>
+<path d="M88 610H440" fill="none" stroke="#2a3e50" stroke-width="1" />
+<circle cx="94" cy="639" r="4" fill="#64ddd8" />
+<text x="108" y="644" font-size="15" fill="#64ddd8" font-weight="500" text-anchor="start" >C3 keeps its process + workspace</text>
+<text x="88" y="672" font-size="14" fill="#92a9bd" font-weight="400" text-anchor="start" >No fleet-wide wait for batch 01.</text>
+<text x="88" y="699" font-size="12" fill="#92a9bd" font-weight="400" text-anchor="start" >Tool work can continue during model sync.</text>
+<rect x="597" y="231" width="510" height="500" rx="18" fill="#091422" stroke="#142a3b" />
+<rect x="590" y="224" width="510" height="500" rx="18" fill="url(#surface)" stroke="#2a3e50" />
+<path d="M610 224H1080" fill="none" stroke="#64ddd8" stroke-width="1" opacity=".55"/>
+<text x="614" y="268" font-size="28" fill="#eef5fc" font-weight="600" text-anchor="start" >NorthRL</text>
+<text x="614" y="298" font-size="14" fill="#92a9bd" font-weight="400" text-anchor="start" >2 ready groups × 3 rollouts = 1 training batch</text>
+<path d="M614 320H1076" fill="none" stroke="#2a3e50" stroke-width="1" />
+<rect x="614" y="334" width="462" height="66" rx="9" fill="#0b1b29" stroke="#284051" />
+<text x="632" y="359" font-size="11" fill="#92a9bd" font-weight="600" text-anchor="start" letter-spacing=".7">GROUP A</text>
+<text x="632" y="380" font-size="10" fill="#92a9bd" font-weight="400" text-anchor="start" >same task</text>
+<rect x="756" y="349" width="62" height="30" rx="5" fill="#112736" stroke="#2b495c" />
+<text x="787" y="369" font-size="12" fill="#526e83" font-weight="500" text-anchor="middle" >A1</text>
+<g opacity="0" id="slot-A1">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.075000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="756" y="349" width="62" height="30" rx="5" fill="#64ddd8" stroke="none" fill-opacity=".8"/>
+<text x="787" y="369" font-size="12" fill="#080f1b" font-weight="600" text-anchor="middle" >A1</text>
+</g>
+<rect x="834" y="349" width="62" height="30" rx="5" fill="#112736" stroke="#2b495c" />
+<text x="865" y="369" font-size="12" fill="#526e83" font-weight="500" text-anchor="middle" >A2</text>
+<g opacity="0" id="slot-A2">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.200000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="834" y="349" width="62" height="30" rx="5" fill="#64ddd8" stroke="none" fill-opacity=".8"/>
+<text x="865" y="369" font-size="12" fill="#080f1b" font-weight="600" text-anchor="middle" >A2</text>
+</g>
+<rect x="912" y="349" width="62" height="30" rx="5" fill="#112736" stroke="#2b495c" />
+<text x="943" y="369" font-size="12" fill="#526e83" font-weight="500" text-anchor="middle" >A3</text>
+<g opacity="0" id="slot-A3">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.308333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="912" y="349" width="62" height="30" rx="5" fill="#64ddd8" stroke="none" fill-opacity=".8"/>
+<text x="943" y="369" font-size="12" fill="#080f1b" font-weight="600" text-anchor="middle" >A3</text>
+</g>
+<g opacity="0" id="count-A-0">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.075000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1040" y="369" font-size="13" fill="#92a9bd" font-weight="500" text-anchor="middle" >0 / 3</text>
+</g>
+<g opacity="0" id="count-A-1">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.075000;0.200000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1040" y="369" font-size="13" fill="#92a9bd" font-weight="500" text-anchor="middle" >1 / 3</text>
+</g>
+<g opacity="0" id="count-A-2">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.200000;0.308333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1040" y="369" font-size="13" fill="#92a9bd" font-weight="500" text-anchor="middle" >2 / 3</text>
+</g>
+<g opacity="0" id="count-A-3">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.308333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1040" y="369" font-size="13" fill="#64ddd8" font-weight="500" text-anchor="middle" >3 / 3</text>
+</g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.354167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="614" y="334" width="462" height="66" rx="9" fill="#101c2b" stroke="#2c344b" />
+<text x="632" y="359" font-size="11" fill="#92a9bd" font-weight="600" text-anchor="start" letter-spacing=".7">GROUP A</text>
+<text x="632" y="380" font-size="10" fill="#92a9bd" font-weight="400" text-anchor="start" >complete</text>
+<text x="890" y="369" font-size="12" fill="#b49aff" font-weight="500" text-anchor="middle" letter-spacing=".3">DISPATCHED IN BATCH 01</text>
+</g>
+<rect x="614" y="422" width="462" height="66" rx="9" fill="#0b1b29" stroke="#284051" />
+<text x="632" y="447" font-size="11" fill="#92a9bd" font-weight="600" text-anchor="start" letter-spacing=".7">GROUP B</text>
+<text x="632" y="468" font-size="10" fill="#92a9bd" font-weight="400" text-anchor="start" >same task</text>
+<rect x="756" y="437" width="62" height="30" rx="5" fill="#112736" stroke="#2b495c" />
+<text x="787" y="457" font-size="12" fill="#526e83" font-weight="500" text-anchor="middle" >B1</text>
+<g opacity="0" id="slot-B1">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.116667;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="756" y="437" width="62" height="30" rx="5" fill="#64ddd8" stroke="none" fill-opacity=".8"/>
+<text x="787" y="457" font-size="12" fill="#080f1b" font-weight="600" text-anchor="middle" >B1</text>
+</g>
+<rect x="834" y="437" width="62" height="30" rx="5" fill="#112736" stroke="#2b495c" />
+<text x="865" y="457" font-size="12" fill="#526e83" font-weight="500" text-anchor="middle" >B2</text>
+<g opacity="0" id="slot-B2">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.229167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="834" y="437" width="62" height="30" rx="5" fill="#64ddd8" stroke="none" fill-opacity=".8"/>
+<text x="865" y="457" font-size="12" fill="#080f1b" font-weight="600" text-anchor="middle" >B2</text>
+</g>
+<rect x="912" y="437" width="62" height="30" rx="5" fill="#112736" stroke="#2b495c" />
+<text x="943" y="457" font-size="12" fill="#526e83" font-weight="500" text-anchor="middle" >B3</text>
+<g opacity="0" id="slot-B3">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.279167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="912" y="437" width="62" height="30" rx="5" fill="#64ddd8" stroke="none" fill-opacity=".8"/>
+<text x="943" y="457" font-size="12" fill="#080f1b" font-weight="600" text-anchor="middle" >B3</text>
+</g>
+<g opacity="0" id="count-B-0">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.116667;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1040" y="457" font-size="13" fill="#92a9bd" font-weight="500" text-anchor="middle" >0 / 3</text>
+</g>
+<g opacity="0" id="count-B-1">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.116667;0.229167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1040" y="457" font-size="13" fill="#92a9bd" font-weight="500" text-anchor="middle" >1 / 3</text>
+</g>
+<g opacity="0" id="count-B-2">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.229167;0.279167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1040" y="457" font-size="13" fill="#92a9bd" font-weight="500" text-anchor="middle" >2 / 3</text>
+</g>
+<g opacity="0" id="count-B-3">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.279167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1040" y="457" font-size="13" fill="#64ddd8" font-weight="500" text-anchor="middle" >3 / 3</text>
+</g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.354167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="614" y="422" width="462" height="66" rx="9" fill="#101c2b" stroke="#2c344b" />
+<text x="632" y="447" font-size="11" fill="#92a9bd" font-weight="600" text-anchor="start" letter-spacing=".7">GROUP B</text>
+<text x="632" y="468" font-size="10" fill="#92a9bd" font-weight="400" text-anchor="start" >complete</text>
+<text x="890" y="457" font-size="12" fill="#b49aff" font-weight="500" text-anchor="middle" letter-spacing=".3">DISPATCHED IN BATCH 01</text>
+</g>
+<rect x="614" y="510" width="462" height="66" rx="9" fill="#0b1b29" stroke="#284051" />
+<text x="632" y="535" font-size="11" fill="#92a9bd" font-weight="600" text-anchor="start" letter-spacing=".7">GROUP C</text>
+<text x="632" y="556" font-size="10" fill="#92a9bd" font-weight="400" text-anchor="start" >same task</text>
+<rect x="756" y="525" width="62" height="30" rx="5" fill="#112736" stroke="#2b495c" />
+<text x="787" y="545" font-size="12" fill="#526e83" font-weight="500" text-anchor="middle" >C1</text>
+<g opacity="0" id="slot-C1">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.150000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="756" y="525" width="62" height="30" rx="5" fill="#64ddd8" stroke="none" fill-opacity=".8"/>
+<text x="787" y="545" font-size="12" fill="#080f1b" font-weight="600" text-anchor="middle" >C1</text>
+</g>
+<rect x="834" y="525" width="62" height="30" rx="5" fill="#112736" stroke="#2b495c" />
+<text x="865" y="545" font-size="12" fill="#526e83" font-weight="500" text-anchor="middle" >C2</text>
+<g opacity="0" id="slot-C2">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.458333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="834" y="525" width="62" height="30" rx="5" fill="#64ddd8" stroke="none" fill-opacity=".8"/>
+<text x="865" y="545" font-size="12" fill="#080f1b" font-weight="600" text-anchor="middle" >C2</text>
+</g>
+<rect x="912" y="525" width="62" height="30" rx="5" fill="#112736" stroke="#2b495c" />
+<text x="943" y="545" font-size="12" fill="#526e83" font-weight="500" text-anchor="middle" >C3</text>
+<g opacity="0" id="count-C-0">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.150000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1040" y="545" font-size="13" fill="#92a9bd" font-weight="500" text-anchor="middle" >0 / 3</text>
+</g>
+<g opacity="0" id="count-C-1">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.150000;0.458333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1040" y="545" font-size="13" fill="#92a9bd" font-weight="500" text-anchor="middle" >1 / 3</text>
+</g>
+<g opacity="0" id="count-C-2">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.458333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1040" y="545" font-size="13" fill="#92a9bd" font-weight="500" text-anchor="middle" >2 / 3</text>
+</g>
+<g opacity="0" id="batch-readiness-0">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.279167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="614" y="600" font-size="14" fill="#92a9bd" font-weight="500" text-anchor="start" >Ready groups  0 / 2</text>
+</g>
+<g opacity="0" id="batch-readiness-1">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.279167;0.308333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="614" y="600" font-size="14" fill="#64ddd8" font-weight="500" text-anchor="start" >Ready groups  1 / 2</text>
+</g>
+<g opacity="0" id="batch-readiness-2">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.308333;0.325000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="614" y="600" font-size="14" fill="#b49aff" font-weight="500" text-anchor="start" >Ready groups  2 / 2  →  ASSEMBLE</text>
+</g>
+<g opacity="0" id="batch-readiness-3">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.325000;0.354167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="614" y="600" font-size="14" fill="#b49aff" font-weight="500" text-anchor="start" >Ready groups  2 / 2  →  DISPATCH</text>
+</g>
+<g opacity="0" id="batch-readiness-4">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.354167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="614" y="600" font-size="14" fill="#64ddd8" font-weight="500" text-anchor="start" >Next batch filling · C3 still in flight</text>
+</g>
+<rect x="614" y="620" width="462" height="77" rx="10" fill="#181f35" stroke="#423758" />
+<g opacity="0" id="batch-state-0">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.325000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="634" y="648" font-size="12" fill="#92a9bd" font-weight="500" text-anchor="start" >BATCH 01 / ASSEMBLING</text>
+</g>
+<g opacity="0" id="batch-state-1">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.325000;0.354167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="634" y="648" font-size="12" fill="#b49aff" font-weight="500" text-anchor="start" >BATCH 01 / READY</text>
+</g>
+<g opacity="0" id="batch-state-2">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.354167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="634" y="648" font-size="12" fill="#b49aff" font-weight="500" text-anchor="start" >BATCH 01 / SENT TO WEAVER</text>
+</g>
+<rect x="920" y="636" width="60" height="40" rx="6" fill="#272a42" stroke="none" />
+<text x="950" y="661" font-size="15" fill="#566078" font-weight="600" text-anchor="middle" >B</text>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.295833;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="920" y="636" width="60" height="40" rx="6" fill="#42365c" stroke="none" />
+<text x="950" y="661" font-size="14" fill="#b49aff" font-weight="600" text-anchor="middle" >B ✓</text>
+</g>
+<rect x="994" y="636" width="60" height="40" rx="6" fill="#272a42" stroke="none" />
+<text x="1024" y="661" font-size="15" fill="#566078" font-weight="600" text-anchor="middle" >A</text>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.325000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="994" y="636" width="60" height="40" rx="6" fill="#42365c" stroke="none" />
+<text x="1024" y="661" font-size="14" fill="#b49aff" font-weight="600" text-anchor="middle" >A ✓</text>
+</g>
+<text x="634" y="674" font-size="12" fill="#92a9bd" font-weight="400" text-anchor="start" >Only complete groups enter training.</text>
+<rect x="1237" y="231" width="306" height="500" rx="18" fill="#091422" stroke="#142a3b" />
+<rect x="1230" y="224" width="306" height="500" rx="18" fill="url(#surface)" stroke="#2a3e50" />
+<path d="M1250 224H1516" fill="none" stroke="#b49aff" stroke-width="1" opacity=".55"/>
+<text x="1254" y="268" font-size="28" fill="#eef5fc" font-weight="600" text-anchor="start" >Weaver</text>
+<text x="1254" y="298" font-size="14" fill="#92a9bd" font-weight="400" text-anchor="start" >Learn while agents work.</text>
+<path d="M1254 320H1512" fill="none" stroke="#2a3e50" stroke-width="1" />
+<text x="1254" y="349" font-size="11" fill="#b49aff" font-weight="600" text-anchor="start" letter-spacing="1">TRAINER</text>
+<g opacity="0" id="trainer-state-0">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.354167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1254" y="378" font-size="15" fill="#92a9bd" font-weight="500" text-anchor="start" >Waiting for batch 01</text>
+</g>
+<g opacity="0" id="trainer-state-1">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.354167;0.562500;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1254" y="378" font-size="15" fill="#b49aff" font-weight="500" text-anchor="start" >Training batch 01</text>
+</g>
+<g opacity="0" id="trainer-state-2">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.562500;0.625000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1254" y="378" font-size="15" fill="#b49aff" font-weight="500" text-anchor="start" >Exporting weights</text>
+</g>
+<g opacity="0" id="trainer-state-3">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.625000;0.750000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1254" y="378" font-size="15" fill="#b49aff" font-weight="500" text-anchor="start" >Publishing new weights</text>
+</g>
+<g opacity="0" id="trainer-state-4">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.750000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1254" y="378" font-size="15" fill="#92a9bd" font-weight="500" text-anchor="start" >Ready for the next batch</text>
+</g>
+<rect x="1254" y="400" width="54" height="50" rx="6" fill="#211f36" stroke="#463c60" />
+<rect x="1262" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1275" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1288" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1262" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1275" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1288" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.354167;0.625000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1262" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1275" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1288" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1262" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1275" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1288" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+</g>
+<rect x="1320" y="400" width="54" height="50" rx="6" fill="#211f36" stroke="#463c60" />
+<rect x="1328" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1341" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1354" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1328" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1341" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1354" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.354167;0.625000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1328" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1341" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1354" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1328" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1341" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1354" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+</g>
+<rect x="1386" y="400" width="54" height="50" rx="6" fill="#211f36" stroke="#463c60" />
+<rect x="1394" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1407" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1420" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1394" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1407" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1420" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.354167;0.625000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1394" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1407" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1420" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1394" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1407" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1420" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+</g>
+<rect x="1452" y="400" width="54" height="50" rx="6" fill="#211f36" stroke="#463c60" />
+<rect x="1460" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1473" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1486" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1460" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1473" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<rect x="1486" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".17"/>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.354167;0.625000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1460" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1473" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1486" y="412" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1460" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1473" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+<rect x="1486" y="425" width="8" height="8" rx="1" fill="#b49aff" stroke="none" fill-opacity=".7"/>
+</g>
+<text x="1254" y="477" font-size="11" fill="#92a9bd" font-weight="400" text-anchor="start" >6 trajectories · complete groups A + B</text>
+<path d="M1486 493V538" fill="none" stroke="#b49aff" stroke-width="1.5" id="weight-route" opacity=".4" marker-end="url(#purple-arrow)"/>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.666667;0.750000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<g class="motion">
+<rect x="-7" y="-4" width="14" height="8" rx="2" fill="#b49aff" stroke="none" />
+<animateMotion dur="1s" repeatCount="indefinite"><mpath href="#weight-route"/></animateMotion></g></g>
+<text x="1254" y="519" font-size="10" fill="#b49aff" font-weight="500" text-anchor="start" letter-spacing="1">WEIGHT SYNC</text>
+<path d="M1254 543H1512" fill="none" stroke="#2a3e50" stroke-width="1" />
+<text x="1254" y="572" font-size="11" fill="#64ddd8" font-weight="600" text-anchor="start" letter-spacing="1">INFERENCE</text>
+<g opacity="0" id="inference-state-0">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.625000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1254" y="605" font-size="16" fill="#64ddd8" font-weight="500" text-anchor="start" >Generating · policy pₖ</text>
+</g>
+<g opacity="0" id="inference-state-1">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.625000;0.666667;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1254" y="605" font-size="16" fill="#edc489" font-weight="500" text-anchor="start" >Retract model requests</text>
+</g>
+<g opacity="0" id="inference-state-2">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.666667;0.750000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1254" y="605" font-size="16" fill="#b49aff" font-weight="500" text-anchor="start" >Install policy pₖ₊₁</text>
+</g>
+<g opacity="0" id="inference-state-3">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.750000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1254" y="605" font-size="16" fill="#64ddd8" font-weight="500" text-anchor="start" >Continue · policy pₖ₊₁</text>
+</g>
+<g opacity="0">
+<animate attributeName="opacity" values="1;0;0" keyTimes="0.000000;0.625000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1254" y="636" font-size="12" fill="#92a9bd" font-weight="500" text-anchor="start" >Serving agent model calls</text>
+</g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.625000;0.750000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1254" y="636" font-size="12" fill="#64ddd8" font-weight="500" text-anchor="start" >Agent process stays alive</text>
+</g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.750000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<text x="1254" y="636" font-size="12" fill="#64ddd8" font-weight="500" text-anchor="start" >Same request continues</text>
+</g>
+<text x="1254" y="686" font-size="12" fill="#92a9bd" font-weight="400" text-anchor="start" >Inference endpoint · model requests</text>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.050000;0.075000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<g class="motion">
+<rect x="-23.0" y="-13" width="46" height="26" rx="6" fill="#153641" stroke="#64ddd8" />
+<text x="0" y="4" font-size="11" fill="#64ddd8" font-weight="600" text-anchor="middle" >A1</text>
+<animateMotion dur="24s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.050000;0.075000;1" calcMode="linear"><mpath href="#arrival-A"/></animateMotion></g></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.175000;0.200000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<g class="motion">
+<rect x="-23.0" y="-13" width="46" height="26" rx="6" fill="#153641" stroke="#64ddd8" />
+<text x="0" y="4" font-size="11" fill="#64ddd8" font-weight="600" text-anchor="middle" >A2</text>
+<animateMotion dur="24s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.175000;0.200000;1" calcMode="linear"><mpath href="#arrival-A"/></animateMotion></g></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.283333;0.308333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<g class="motion">
+<rect x="-23.0" y="-13" width="46" height="26" rx="6" fill="#153641" stroke="#64ddd8" />
+<text x="0" y="4" font-size="11" fill="#64ddd8" font-weight="600" text-anchor="middle" >A3</text>
+<animateMotion dur="24s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.283333;0.308333;1" calcMode="linear"><mpath href="#arrival-A"/></animateMotion></g></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.091667;0.116667;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<g class="motion">
+<rect x="-23.0" y="-13" width="46" height="26" rx="6" fill="#153641" stroke="#64ddd8" />
+<text x="0" y="4" font-size="11" fill="#64ddd8" font-weight="600" text-anchor="middle" >B1</text>
+<animateMotion dur="24s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.091667;0.116667;1" calcMode="linear"><mpath href="#arrival-B"/></animateMotion></g></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.204167;0.229167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<g class="motion">
+<rect x="-23.0" y="-13" width="46" height="26" rx="6" fill="#153641" stroke="#64ddd8" />
+<text x="0" y="4" font-size="11" fill="#64ddd8" font-weight="600" text-anchor="middle" >B2</text>
+<animateMotion dur="24s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.204167;0.229167;1" calcMode="linear"><mpath href="#arrival-B"/></animateMotion></g></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.254167;0.279167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<g class="motion">
+<rect x="-23.0" y="-13" width="46" height="26" rx="6" fill="#153641" stroke="#64ddd8" />
+<text x="0" y="4" font-size="11" fill="#64ddd8" font-weight="600" text-anchor="middle" >B3</text>
+<animateMotion dur="24s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.254167;0.279167;1" calcMode="linear"><mpath href="#arrival-B"/></animateMotion></g></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.125000;0.150000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<g class="motion">
+<rect x="-23.0" y="-13" width="46" height="26" rx="6" fill="#153641" stroke="#64ddd8" />
+<text x="0" y="4" font-size="11" fill="#64ddd8" font-weight="600" text-anchor="middle" >C1</text>
+<animateMotion dur="24s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.125000;0.150000;1" calcMode="linear"><mpath href="#arrival-C"/></animateMotion></g></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.433333;0.458333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<g class="motion">
+<rect x="-23.0" y="-13" width="46" height="26" rx="6" fill="#153641" stroke="#64ddd8" />
+<text x="0" y="4" font-size="11" fill="#64ddd8" font-weight="600" text-anchor="middle" >C2</text>
+<animateMotion dur="24s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.433333;0.458333;1" calcMode="linear"><mpath href="#arrival-C"/></animateMotion></g></g>
+<path d="M1040 452C1100 452 1100 606 1040 606H950V656" fill="none" stroke="none" stroke-width="1.5" id="group-B-transfer"/>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.279167;0.295833;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<g class="motion">
+<rect x="-29.0" y="-13" width="58" height="26" rx="6" fill="#302944" stroke="#b49aff" />
+<text x="0" y="4" font-size="11" fill="#b49aff" font-weight="600" text-anchor="middle" >B ×3</text>
+<animateMotion dur="24s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.279167;0.295833;1" calcMode="linear"><mpath href="#group-B-transfer"/></animateMotion></g></g>
+<path d="M1040 364C1100 364 1100 606 1040 606H1024V656" fill="none" stroke="none" stroke-width="1.5" id="group-A-transfer"/>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.308333;0.325000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<g class="motion">
+<rect x="-29.0" y="-13" width="58" height="26" rx="6" fill="#302944" stroke="#b49aff" />
+<text x="0" y="4" font-size="11" fill="#b49aff" font-weight="600" text-anchor="middle" >A ×3</text>
+<animateMotion dur="24s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.308333;0.325000;1" calcMode="linear"><mpath href="#group-A-transfer"/></animateMotion></g></g>
+<g opacity="0">
+<animate attributeName="opacity" values="0;1;0;0" keyTimes="0.000000;0.329167;0.354167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<g class="motion">
+<rect x="-44.0" y="-13" width="88" height="26" rx="6" fill="#302944" stroke="#b49aff" />
+<text x="0" y="4" font-size="11" fill="#b49aff" font-weight="600" text-anchor="middle" >BATCH 01</text>
+<animateMotion dur="24s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.329167;0.354167;1" calcMode="linear"><mpath href="#batch-route"/></animateMotion></g></g>
+<path d="M264 731V780Q264 796 280 796H646" fill="none" stroke="#64ddd8" stroke-width="1.5" id="northgate-request-in" opacity=".4" marker-end="url(#cyan-arrow)"/>
+<path d="M954 796H1367Q1383 796 1383 780V735" fill="none" stroke="#64ddd8" stroke-width="1.5" id="northgate-request-out" opacity=".4" marker-end="url(#cyan-arrow)"/>
+<path d="M1466 731V830Q1466 846 1450 846H954" fill="none" stroke="#64ddd8" stroke-width="1.5" id="northgate-response-in" opacity=".4" marker-end="url(#cyan-arrow)"/>
+<path d="M646 846H216Q200 846 200 830V735" fill="none" stroke="#64ddd8" stroke-width="1.5" id="northgate-response-out" opacity=".4" marker-end="url(#cyan-arrow)"/>
+<text x="454" y="779" font-size="13" fill="#64ddd8" font-weight="500" text-anchor="middle" >E2B local relay · model requests</text>
+<text x="1177" y="779" font-size="13" fill="#64ddd8" font-weight="500" text-anchor="middle" >to Weaver inference</text>
+<text x="424" y="873" font-size="12" fill="#92a9bd" font-weight="400" text-anchor="middle" >Responses + token metadata</text>
+<text x="1203" y="873" font-size="12" fill="#92a9bd" font-weight="400" text-anchor="middle" >Responses + tokens / logprobs</text>
+<rect x="650" y="764" width="300" height="118" rx="14" fill="#0d202c" stroke="#366674" />
+<path d="M670 764H930" fill="none" stroke="#64ddd8" stroke-width="1.5" opacity=".65"/>
+<text x="800" y="805" font-size="27" fill="#eef5fc" font-weight="600" text-anchor="middle" >NorthGate</text>
+<text x="800" y="834" font-size="15" fill="#64ddd8" font-weight="500" text-anchor="middle" >Model API gateway</text>
+<text x="800" y="859" font-size="12" fill="#92a9bd" font-weight="400" text-anchor="middle" >E2B  ⇄  inference</text>
+<circle cx="650" cy="796" r="4" fill="#0d202c" stroke="#64ddd8" stroke-width="1.2"/>
+<circle cx="950" cy="796" r="4" fill="#0d202c" stroke="#64ddd8" stroke-width="1.2"/>
+<circle cx="650" cy="846" r="4" fill="#0d202c" stroke="#64ddd8" stroke-width="1.2"/>
+<circle cx="950" cy="846" r="4" fill="#0d202c" stroke="#64ddd8" stroke-width="1.2"/>
+<g class="motion" id="northgate-flow-0">
+<circle cx="0" cy="0" r="8" fill="#64ddd8" opacity=".1"/>
+<circle cx="0" cy="0" r="3" fill="#64ddd8" />
+<animateMotion dur="24s" keyPoints="0;.62;.62;1" keyTimes="0;.625;.75;1" calcMode="linear" repeatCount="indefinite"><mpath href="#northgate-request-in"/></animateMotion></g>
+<g class="motion" id="northgate-flow-1">
+<circle cx="0" cy="0" r="8" fill="#64ddd8" opacity=".1"/>
+<circle cx="0" cy="0" r="3" fill="#64ddd8" />
+<animateMotion dur="24s" keyPoints="0;.62;.62;1" keyTimes="0;.625;.75;1" calcMode="linear" repeatCount="indefinite"><mpath href="#northgate-request-out"/></animateMotion></g>
+<g class="motion" id="northgate-flow-2">
+<circle cx="0" cy="0" r="8" fill="#64ddd8" opacity=".1"/>
+<circle cx="0" cy="0" r="3" fill="#64ddd8" />
+<animateMotion dur="24s" keyPoints="0;.62;.62;1" keyTimes="0;.625;.75;1" calcMode="linear" repeatCount="indefinite"><mpath href="#northgate-response-in"/></animateMotion></g>
+<g class="motion" id="northgate-flow-3">
+<circle cx="0" cy="0" r="8" fill="#64ddd8" opacity=".1"/>
+<circle cx="0" cy="0" r="3" fill="#64ddd8" />
+<animateMotion dur="24s" keyPoints="0;.62;.62;1" keyTimes="0;.625;.75;1" calcMode="linear" repeatCount="indefinite"><mpath href="#northgate-response-out"/></animateMotion></g>
+<g id="continuity-detail" transform="translate(0 140)">
+<path d="M64 768H1536" fill="none" stroke="#2a3e50" stroke-width="1" />
+<text x="64" y="810" font-size="27" fill="#eef5fc" font-weight="500" text-anchor="start" letter-spacing="-.4">Partial rollout. No agent restart.</text>
+<text x="1536" y="810" font-size="11" fill="#92a9bd" font-weight="500" text-anchor="end" letter-spacing="1">C3 / THE LONG-RUNNING AGENT</text>
+<text x="64" y="876" font-size="11" fill="#64ddd8" font-weight="600" text-anchor="start" letter-spacing=".8">E2B AGENT C3</text>
+<text x="64" y="943" font-size="11" fill="#92a9bd" font-weight="600" text-anchor="start" letter-spacing=".8">LLM REQUEST</text>
+<rect x="246" y="850" width="1290" height="38" rx="9" fill="#12312f" stroke="#2f5b55" />
+<path d="M260 869H1522" fill="none" stroke="#64ddd8" stroke-width="1.5" opacity=".3"/>
+<rect x="677" y="851" width="428" height="36" rx="8" fill="#12312f" stroke="none" />
+<text x="891" y="875" font-size="13" fill="#64ddd8" font-weight="500" text-anchor="middle" >ALIVE · same process · same workspace · same task</text>
+<g class="motion">
+<circle cx="0" cy="0" r="8" fill="#64ddd8" opacity=".09"/>
+<circle cx="0" cy="0" r="3" fill="#64ddd8" />
+<animateMotion path="M256 869H1526" dur="24s" repeatCount="indefinite"/></g>
+<rect x="246" y="914" width="800.25" height="42" rx="7" fill="#64ddd8" stroke="none" fill-opacity=".07"/>
+<rect x="1052.25" y="914" width="155.25" height="42" rx="7" fill="#edc489" stroke="none" fill-opacity=".08"/>
+<rect x="1052.25" y="914" width="155.25" height="42" rx="7" fill="url(#hatch)" stroke="none" />
+<rect x="1213.5" y="914" width="322.5" height="42" rx="7" fill="#64ddd8" stroke="none" fill-opacity=".07"/>
+<text x="254" y="907" font-size="10" fill="#64ddd8" font-weight="500" text-anchor="start" letter-spacing=".8">GENERATE PREFIX</text>
+<text x="1059.25" y="907" font-size="10" fill="#edc489" font-weight="500" text-anchor="start" letter-spacing=".5">MODEL-SIDE HOLD</text>
+<text x="1221.5" y="907" font-size="10" fill="#64ddd8" font-weight="500" text-anchor="start" letter-spacing=".8">CONTINUE</text>
+<rect x="258" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-0">
+<animate attributeName="opacity" values="1;1" keyTimes="0.000000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="258" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="281" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-1">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.017083;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="281" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="304" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-2">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.034167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="304" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="327" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-3">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.051250;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="327" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="350" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-4">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.068333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="350" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="373" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-5">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.085417;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="373" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="396" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-6">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.102500;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="396" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="419" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-7">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.119583;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="419" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="442" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-8">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.136667;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="442" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="465" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-9">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.153750;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="465" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="488" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-10">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.170833;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="488" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="511" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-11">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.187917;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="511" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="534" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-12">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.205000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="534" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="557" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-13">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.222083;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="557" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="580" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-14">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.239167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="580" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="603" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-15">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.256250;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="603" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="626" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-16">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.273333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="626" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="649" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-17">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.290417;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="649" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="672" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-18">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.307500;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="672" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="695" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-19">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.324583;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="695" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="718" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-20">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.341667;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="718" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="741" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-21">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.358750;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="741" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="764" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-22">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.375833;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="764" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="787" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-23">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.392917;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="787" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="810" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-24">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.410000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="810" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="833" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-25">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.427083;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="833" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="856" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-26">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.444167;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="856" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="879" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-27">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.461250;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="879" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="902" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-28">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.478333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="902" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="925" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-29">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.495417;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="925" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="948" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-30">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.512500;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="948" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="971" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-31">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.529583;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="971" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="994" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-32">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.546667;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="994" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="1017" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="prefix-33">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.563750;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1017" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<text x="1129.875" y="940" font-size="11" fill="#edc489" font-weight="500" text-anchor="middle" >retract + sync</text>
+<rect x="1225.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="suffix-0">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.750000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1225.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="1248.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="suffix-1">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.766667;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1248.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="1271.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="suffix-2">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.783333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1271.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="1294.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="suffix-3">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.800000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1294.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="1317.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="suffix-4">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.816667;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1317.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="1340.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="suffix-5">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.833333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1340.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="1363.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="suffix-6">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.850000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1363.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="1386.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="suffix-7">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.866667;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1386.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="1409.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="suffix-8">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.883333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1409.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="1432.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="suffix-9">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.900000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1432.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="1455.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="suffix-10">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.916667;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1455.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="1478.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="suffix-11">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.933333;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1478.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<rect x="1501.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".12"/>
+<g opacity="0" id="suffix-12">
+<animate attributeName="opacity" values="0;1;1" keyTimes="0.000000;0.950000;1.000000" calcMode="discrete" dur="24s" repeatCount="indefinite"/>
+<rect x="1501.5" y="925" width="15" height="20" rx="3" fill="#64ddd8" stroke="none" fill-opacity=".85"/>
+</g>
+<g class="motion">
+<path d="M246 843V965" fill="none" stroke="#eef5fc" stroke-width="1" opacity=".4"/>
+<circle cx="246" cy="843" r="2.5" fill="#eef5fc" />
+<animateTransform attributeName="transform" type="translate" values="0 0;1290 0" dur="24s" repeatCount="indefinite"/></g>
+<text x="246" y="991" font-size="14" fill="#92a9bd" font-weight="400" text-anchor="start" >Model requests may wait during weight sync. The agent is neither stopped nor restarted.</text>
+<path d="M64 1022H1536" fill="none" stroke="#2a3e50" stroke-width="1" />
+<text x="64" y="1049" font-size="12" fill="#92a9bd" font-weight="400" text-anchor="start" >Train on complete trajectories; preserve in-flight rollout state.</text>
+<text x="1536" y="1049" font-size="11" fill="#92a9bd" font-weight="400" text-anchor="end" >Illustrative timing · Full-FT retract · Backend support required</text>
+</g>
+</svg>

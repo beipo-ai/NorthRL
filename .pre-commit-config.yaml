@@ -1,0 +1,79 @@
+# Copyright (c) Nex-AGI. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-added-large-files
+      - id: check-yaml
+        args: [--allow-multiple-documents]
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+  - repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 25.1.0
+    hooks:
+      - id: black
+        language_version: python3.12
+  - repo: https://github.com/pycqa/isort
+    rev: 6.0.0
+    hooks:
+      - id: isort
+        name: isort (python)
+  - repo: local
+    hooks:
+      - id: fix-license-header
+        name: Fix License Header
+        entry: python tests/lint/fix_license_header.py
+        language: system
+        types_or: [python, shell, yaml, toml]
+        pass_filenames: true
+      - id: check-license-header
+        name: Check License Header
+        entry: python tests/lint/check_license_header.py
+        language: system
+        types_or: [python, shell, yaml, toml]
+        pass_filenames: true
+  - repo: https://github.com/pycqa/pylint
+    rev: v3.3.2
+    hooks:
+      - id: pylint
+        name: pylint (non-test files)
+        types: [python]
+        exclude: ^tests/
+        args: [
+            "-rn", # Only display messages
+            "-sn", # Don't display the score
+          ]
+      # - id: pylint
+      #   name: pylint (test files)
+      #   types: [python]
+      #   files: ^tests/
+      #   args: [
+      #       "-rn", # Only display messages
+      #       "-sn", # Don't display the score
+      #       "--rcfile=tests/.pylintrc",
+      #     ]
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.16.0
+    hooks:
+      - id: mypy
+        exclude: "^(tests|recipe)/"
+        additional_dependencies:
+          [
+            "types-requests",
+            "types-setuptools",
+            "numpy",
+            "pytest",
+          ]

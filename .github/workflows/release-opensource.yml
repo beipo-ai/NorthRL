@@ -1,0 +1,129 @@
+# Copyright (c) Nex-AGI. All rights reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+name: Release Open Source Image
+
+# Publish the open-source flavored image (docker/Dockerfile) built from an NGC
+# base. Runs on GitHub-hosted runners. Triggered by pushing a release tag of
+# the form v*.*.* (e.g. v1.7.0) or manually via workflow_dispatch.
+on:
+  push:
+    tags:
+      - "v*.*.*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version tag to publish (e.g. v1.7.0). Leave empty to use the git tag."
+        required: false
+        type: string
+
+env:
+  # Configure a separate destination for NorthRL; never inherit the old image target.
+  IMAGE_REPOSITORY: ${{ vars.NORTHRL_IMAGE_REPOSITORY }}
+
+jobs:
+  build-and-push:
+    name: Build & Push NorthRL image
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check image destination
+        shell: bash
+        run: |
+          if [[ -z "$IMAGE_REPOSITORY" ]]; then
+            echo "::error::Set the NORTHRL_IMAGE_REPOSITORY repository variable to the NorthRL Docker Hub image repository before publishing."
+            exit 1
+          fi
+
+      - name: Free disk space
+        run: |
+          echo "Disk usage before cleanup:"
+          df -h /
+          # Toolchains and SDKs we never use in this build.
+          sudo rm -rf \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /usr/local/.ghcup \
+            /usr/local/lib/android \
+            /usr/local/share/boost \
+            /usr/local/share/powershell \
+            /usr/local/share/chromium \
+            /usr/share/swift \
+            /usr/share/miniconda \
+            /opt/hostedtoolcache \
+            /opt/microsoft \
+            /opt/google \
+            /opt/pipx \
+            /imagegeneration \
+            /usr/lib/google-cloud-sdk \
+            /usr/lib/heroku \
+            "$AGENT_TOOLSDIRECTORY" || true
+          # Big APT packages the image ships pre-installed.
+          sudo apt-get purge -y --allow-remove-essential \
+            firefox google-chrome-stable microsoft-edge-stable \
+            azure-cli snapd mono-devel 2>/dev/null || true
+          sudo apt-get autoremove -y 2>/dev/null || true
+          sudo apt-get clean 2>/dev/null || true
+          # The 4GB swapfile is disk we can reclaim.
+          sudo swapoff -a || true
+          sudo rm -f /swapfile /mnt/swapfile || true
+          # Drop preloaded docker images and build cache.
+          sudo docker image prune --all --force || true
+          sudo docker builder prune --all --force || true
+          echo "Disk usage after cleanup:"
+          df -h /
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: version
+        run: |
+          if [ -n "${{ inputs.version }}" ]; then
+            RAW="${{ inputs.version }}"
+          else
+            RAW="${GITHUB_REF_NAME}"
+          fi
+          # Strip leading v for the numeric LABEL; keep tag form for image tag.
+          TAG="${RAW}"
+          NUMERIC="${RAW#v}"
+          echo "tag=${TAG}"     >> "$GITHUB_OUTPUT"
+          echo "numeric=${NUMERIC}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/Dockerfile
+          push: true
+          tags: |
+            ${{ env.IMAGE_REPOSITORY }}:${{ steps.version.outputs.tag }}
+            ${{ env.IMAGE_REPOSITORY }}:latest
+          build-args: |
+            NORTHRL_VERSION=${{ steps.version.outputs.numeric }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
